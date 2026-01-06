@@ -1,21 +1,23 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Oswald, Manrope } from "next/font/google"; // The "Cinema" fonts
 import { Toaster } from "sonner";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const oswald = Oswald({
   subsets: ["latin"],
+  variable: "--font-oswald",
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const manrope = Manrope({
   subsets: ["latin"],
+  variable: "--font-manrope",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "PCA Cinemax | Enterprise",
-  description: "Advanced Cinema Management System",
+  title: "PCA Cinemax | Immersive Experience",
+  description: "Defining the gold standard of cinematic entertainment.",
 };
 
 export default function RootLayout({
@@ -24,20 +26,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark scroll-smooth">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#050505] text-white`}
-        suppressHydrationWarning={true}
+        className={`${oswald.variable} ${manrope.variable} font-sans antialiased bg-[#020202] text-white selection:bg-[#e50914] selection:text-white`}
       >
         {children}
-        <Toaster
-          position="top-right"
-          richColors
-          theme="dark"
-          expand={false}
-          closeButton
-          visibleToasts={3}
-        />
+        <Toaster position="top-center" theme="dark" />
       </body>
     </html>
   );
