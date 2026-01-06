@@ -127,6 +127,7 @@ model Show {
   movieId   String   @db.Uuid
   hallId    String   @db.Uuid
   startTime DateTime
+  endTime   DateTime
   basePrice Decimal  @db.Decimal(10, 2)
   
   movie     Movie    @relation(fields: [movieId], references: [id], onDelete: Restrict)
@@ -135,6 +136,8 @@ model Show {
 
   @@map("shows")
   @@schema("public")
+  @@index([startTime])
+  @@index([endTime])
 }
 
 // --- 3. BOOKING ENGINE ---
