@@ -1,0 +1,190 @@
+// prisma/schema.prisma
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+  output          = "../generated/prisma/client" // Required in V7
+}
+
+datasource db {
+  provider  = "postgresql"
+  schemas   = ["public", "stripe"]
+}
+
+// --- ENUMS ---
+enum Role {
+  USER
+  ADMIN
+  STAFF
+  @@map("role")
+  @@schema("public")
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  REFUNDED
+  @@map("booking_status")
+  @@schema("public")
+}
+
+// --- 1. USERS & PROFILES ---
+model Profile {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @unique @db.Uuid
+  email       String   @unique
+  name        String?
+  role        Role     @default(USER)
+  balance     Decimal  @default(0.00) @db.Decimal(10, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  bookings     Booking[]
+  transactions WalletTransaction[]
+  reviews      MovieReview[]
+
+  @@map("profiles")
+  @@schema("public")
+}
+
+model WalletTransaction {
+  id          String          @id @default(uuid()) @db.Uuid
+  profileId   String          @db.Uuid
+  amount      Decimal         @db.Decimal(10, 2)
+  type        String          // CREDIT, DEBIT
+  description String
+  createdAt   DateTime        @default(now())
+
+  profile     Profile         @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("wallet_transactions")
+  @@schema("public")
+}
+
+// --- 2. MOVIES & HALLS ---
+model Movie {
+  id           String   @id @default(uuid()) @db.Uuid
+  tmdbId       Int      @unique
+  title        String
+  overview     String?
+  posterPath   String?
+  backdropPath String?
+  durationMin  Int
+  releaseDate  DateTime?
+  genres       String[]
+  rating       Float?
+  status       String   @default("Coming Soon")
+  
+  createdAt    DateTime @default(now())
+  
+  shows        Show[]
+  reviews      MovieReview[]
+
+  @@map("movies")
+  @@schema("public")
+}
+
+model Hall {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  totalRows Int
+  totalCols Int
+  type      String   @default("Standard")
+  
+  seats     Seat[]
+  shows     Show[]
+
+  @@map("halls")
+  @@schema("public")
+}
+
+model Seat {
+  id        String   @id @default(uuid()) @db.Uuid
+  hallId    String   @db.Uuid
+  
+  // Logical Label (What is printed on the ticket)
+  rowLabel  String   // e.g. "A", "DL"
+  number    Int      // e.g. 1, 15
+  
+  // Visual Position (For the CSS Grid)
+  gridRow   Int      // Vertical position (Y)
+  gridCol   Int      // Horizontal position (X)
+  
+  type      String   @default("Standard") // Standard, VIP, Wheelchair
+  status    String   @default("Available") // Available, Blocked (for maintenance)
+  
+  hall      Hall     @relation(fields: [hallId], references: [id], onDelete: Cascade)
+  tickets   Ticket[]
+
+  @@unique([hallId, rowLabel, number]) 
+  @@map("seats")
+  @@schema("public")
+}
+
+model Show {
+  id        String   @id @default(uuid()) @db.Uuid
+  movieId   String   @db.Uuid
+  hallId    String   @db.Uuid
+  startTime DateTime
+  basePrice Decimal  @db.Decimal(10, 2)
+  
+  movie     Movie    @relation(fields: [movieId], references: [id], onDelete: Restrict)
+  hall      Hall     @relation(fields: [hallId], references: [id], onDelete: Restrict)
+  bookings  Booking[]
+
+  @@map("shows")
+  @@schema("public")
+}
+
+// --- 3. BOOKING ENGINE ---
+model Booking {
+  id              String        @id @default(uuid()) @db.Uuid
+  bookingRef      String        @unique
+  profileId       String        @db.Uuid
+  showId          String        @db.Uuid
+  totalAmount     Decimal       @db.Decimal(10, 2)
+  status          BookingStatus @default(PENDING)
+  
+  // This links to Supabase's auto-generated stripe.payment_intents table
+  stripePaymentIntentId String?  @unique 
+  
+  createdAt       DateTime      @default(now())
+  
+  profile         Profile       @relation(fields: [profileId], references: [id])
+  show            Show          @relation(fields: [showId], references: [id])
+  tickets         Ticket[]
+
+  @@map("bookings")
+  @@schema("public")
+}
+
+model Ticket {
+  id          String   @id @default(uuid()) @db.Uuid
+  bookingId   String   @db.Uuid
+  seatId      String   @db.Uuid
+  qrCode      String   @unique
+  isCheckedIn Boolean  @default(false)
+  
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  seat        Seat     @relation(fields: [seatId], references: [id])
+
+  @@unique([bookingId, seatId])
+  @@map("tickets")
+  @@schema("public")
+}
+
+model MovieReview {
+  id        String   @id @default(uuid()) @db.Uuid
+  profileId String   @db.Uuid
+  movieId   String   @db.Uuid
+  rating    Int      
+  review    String?  @db.Text
+  createdAt DateTime @default(now())
+
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  movie     Movie    @relation(fields: [movieId], references: [id], onDelete: Cascade)
+
+  @@map("movie_reviews")
+  @@schema("public")
+}
